@@ -1,13 +1,12 @@
-const http = require('http');
+const https = require('https');
 
 const data = JSON.stringify({
   email: 'test@example.com',
   password: 'password123'
 });
 
-const req = http.request({
-  hostname: 'localhost',
-  port: 5000,
+const req = https.request({
+  hostname: 'point-collected-9ygm.vercel.app',
   path: '/api/auth/login',
   method: 'POST',
   headers: {
