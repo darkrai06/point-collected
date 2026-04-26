@@ -10,6 +10,7 @@
     "build": "npm run build --prefix client"
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^8.2.2",
     "vite": "^8.0.10"
   }
