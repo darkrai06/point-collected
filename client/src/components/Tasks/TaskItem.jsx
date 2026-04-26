@@ -21,8 +21,8 @@ const TaskItem = ({ task, onTaskUpdated, onTaskDeleted }) => {
     const [errorMsg, setErrorMsg] = useState('');
 
     const handleCompleteClick = () => {
-        if (task.is_completed || completing) return;
-        setMinInput('1');
+        if (completing) return;
+        setMinInput(task.minutes ? task.minutes.toString() : '1');
         setErrorMsg('');
         setShowModal(true);
     };
@@ -41,8 +41,9 @@ const TaskItem = ({ task, onTaskUpdated, onTaskDeleted }) => {
             await api.patch(`/tasks/${task._id}/complete`, { minutes });
             await refreshUser(); // Update global points/level
             onTaskUpdated();
+            setCompleting(false);
         } catch (err) {
-            console.error('Failed to complete task', err);
+            console.error('Failed to update task', err);
             setCompleting(false);
         }
     };
@@ -63,11 +64,10 @@ const TaskItem = ({ task, onTaskUpdated, onTaskDeleted }) => {
             display: 'flex',
             alignItems: 'center',
             padding: '16px',
-            background: task.is_completed ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
+            background: 'rgba(255,255,255,0.05)',
             borderLeft: `4px solid ${diffColors[task.difficulty] || diffColors.easy}`,
             borderRadius: '8px',
             marginBottom: '12px',
-            opacity: task.is_completed ? 0.6 : 1,
             transition: 'all 0.3s ease'
         }}>
             <div 
@@ -77,7 +77,7 @@ const TaskItem = ({ task, onTaskUpdated, onTaskDeleted }) => {
                     borderRadius: '50%',
                     border: `2px solid ${task.is_completed ? 'var(--accent-cyan)' : 'var(--text-secondary)'}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: task.is_completed || completing ? 'default' : 'pointer',
+                    cursor: completing ? 'default' : 'pointer',
                     color: task.is_completed ? 'var(--accent-cyan)' : 'transparent',
                     transition: 'all 0.2s',
                     background: task.is_completed ? 'rgba(0, 240, 255, 0.1)' : 'transparent',
@@ -91,8 +91,7 @@ const TaskItem = ({ task, onTaskUpdated, onTaskDeleted }) => {
                 <h4 style={{ 
                     fontSize: '16px', 
                     fontWeight: 600,
-                    textDecoration: task.is_completed ? 'line-through' : 'none',
-                    color: task.is_completed ? 'var(--text-secondary)' : 'var(--text-primary)'
+                    color: 'var(--text-primary)'
                 }}>
                     {task.title}
                 </h4>

@@ -118,7 +118,7 @@ router.put('/:id', auth, async (req, res) => {
 });
 
 // @route   PATCH api/tasks/:id/complete
-// @desc    Mark task as completed, award points
+// @desc    Mark task as completed or update minutes, award/adjust points
 // @access  Private
 router.patch('/:id/complete', auth, async (req, res) => {
   const { minutes } = req.body;
@@ -127,19 +127,29 @@ router.patch('/:id/complete', auth, async (req, res) => {
   try {
     let task = await Task.findOne({ _id: req.params.id, user_id: req.user.id });
     if (!task) return res.status(404).json({ msg: 'Task not found' });
-    if (task.is_completed) return res.status(400).json({ msg: 'Task already completed' });
 
-    const totalPoints = task.points * parsedMinutes;
+    let pointDifference = 0;
+    let isInitialCompletion = false;
 
-    // 1. Update task
-    task.is_completed = true;
-    task.completed_at = new Date();
+    if (task.is_completed) {
+      // Adjust points based on new minutes
+      const oldPoints = task.points * task.minutes;
+      const newPoints = task.points * parsedMinutes;
+      pointDifference = newPoints - oldPoints;
+    } else {
+      // First time completing
+      pointDifference = task.points * parsedMinutes;
+      task.is_completed = true;
+      task.completed_at = new Date();
+      isInitialCompletion = true;
+    }
+
     task.minutes = parsedMinutes;
     await task.save();
 
-    // 2. Add points to user and update level
+    // 2. Adjust points for user and update level
     const user = await User.findById(req.user.id);
-    let newTotalPoints = user.total_points + totalPoints;
+    let newTotalPoints = user.total_points + pointDifference;
     
     // Calculate daily points
     const today = new Date().toISOString().split('T')[0];
@@ -151,31 +161,33 @@ router.patch('/:id/complete', auth, async (req, res) => {
 
     if (!todayPointsRecord) {
       // First task of the day!
-      // Check if they completed a task yesterday to continue streak
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-      const yesterdayRecord = await DailyPoint.findOne({ user_id: req.user.id, date: yesterday });
-      
-      if (yesterdayRecord) {
-        newStreak += 1;
-      } else {
-        newStreak = 1;
-      }
-      
-      if (newStreak > newBestStreak) newBestStreak = newStreak;
-      
-      if (newStreak > 1) {
-          streakBonus = 5; // Streak bonus!
-          newTotalPoints += streakBonus;
+      // Only award streak bonus on initial completion, not on updates
+      if (isInitialCompletion) {
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const yesterdayRecord = await DailyPoint.findOne({ user_id: req.user.id, date: yesterday });
+        
+        if (yesterdayRecord) {
+          newStreak += 1;
+        } else {
+          newStreak = 1;
+        }
+        
+        if (newStreak > newBestStreak) newBestStreak = newStreak;
+        
+        if (newStreak > 1) {
+            streakBonus = 5; // Streak bonus!
+            newTotalPoints += streakBonus;
+        }
       }
 
       todayPointsRecord = new DailyPoint({
         user_id: req.user.id,
         date: today,
-        points_earned: totalPoints + streakBonus
+        points_earned: pointDifference + streakBonus
       });
       await todayPointsRecord.save();
     } else {
-      todayPointsRecord.points_earned += totalPoints;
+      todayPointsRecord.points_earned += pointDifference;
       await todayPointsRecord.save();
     }
 
@@ -212,7 +224,7 @@ router.patch('/:id/complete', auth, async (req, res) => {
 
     // Convert mongoose doc to plain object and add custom field
     const responseTask = task.toObject();
-    responseTask.points_awarded = totalPoints + streakBonus;
+    responseTask.points_awarded = pointDifference + streakBonus;
 
     res.json({ task: responseTask });
   } catch (err) {
