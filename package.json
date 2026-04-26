@@ -10,6 +10,7 @@
     "build": "npm run build --prefix client"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "vite": "^8.0.10"
   }
 }
